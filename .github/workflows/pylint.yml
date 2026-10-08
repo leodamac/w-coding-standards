@@ -1,64 +1,23 @@
 name: Pylint
 
-on:
-  pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: read
+on: [push]
 
 jobs:
-  lint:
-    name: Run Pylint
+  build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10"]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Pylint and report generator
-        run: |
-          python -m pip install --upgrade pip
-          pip install pylint pylint-json2html
-
-      - name: Discover Python source files
-        id: discover
-        run: |
-          FILES=$(git ls-files '*.py' | grep -v '^base_code\.py$' | tr '\n' ' ')
-          echo "files=$FILES" >> "$GITHUB_OUTPUT"
-          echo "Analizando: $FILES"
-
-      - name: Run Pylint (fails if any file < 10)
-        id: pylint
-        run: |
-          pylint ${{ steps.discover.outputs.files }} --fail-under=10
-        continue-on-error: true
-
-      - name: Generate JSON report
-        if: always()
-        run: |
-          pylint ${{ steps.discover.outputs.files }} \
-            --output-format=json > pylint-report.json || true
-
-      - name: Convert JSON to HTML
-        if: always()
-        run: pylint-json2html -o pylint-report.html pylint-report.json
-
-      - name: Upload HTML report as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pylint-report
-          path: pylint-report.html
-
-      - name: Fail job if Pylint found issues
-        if: steps.pylint.outcome == 'failure'
-        run: |
-          echo "❌ Pylint encontró problemas. Revisa el artifact pylint-report."
-          exit 1
+    - uses: actions/checkout@v4
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v3
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint
+    - name: Analysing the code with pylint
+      run: |
+        pylint $(git ls-files '*.py')

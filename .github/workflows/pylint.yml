@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Run Pylint
@@ -24,12 +27,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install pylint pylint-json2html
 
-      - name: Run Pylint (fails if score < 10)
-        run: pylint student_grade_manager.py --fail-under=10
+      - name: Discover Python source files
+        id: discover
+        run: |
+          FILES=$(git ls-files '*.py' | grep -v '^base_code\.py$' | tr '\n' ' ')
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          echo "Analizando: $FILES"
+
+      - name: Run Pylint (fails if any file < 10)
+        id: pylint
+        run: |
+          pylint ${{ steps.discover.outputs.files }} --fail-under=10
+        continue-on-error: true
 
       - name: Generate JSON report
         if: always()
-        run: pylint student_grade_manager.py --output-format=json > pylint-report.json || true
+        run: |
+          pylint ${{ steps.discover.outputs.files }} \
+            --output-format=json > pylint-report.json || true
 
       - name: Convert JSON to HTML
         if: always()
@@ -41,3 +56,9 @@ jobs:
         with:
           name: pylint-report
           path: pylint-report.html
+
+      - name: Fail job if Pylint found issues
+        if: steps.pylint.outcome == 'failure'
+        run: |
+          echo "❌ Pylint encontró problemas. Revisa el artifact pylint-report."
+          exit 1

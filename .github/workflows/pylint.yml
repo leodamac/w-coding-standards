@@ -1,0 +1,43 @@
+name: Pylint
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: Run Pylint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Pylint and report generator
+        run: |
+          python -m pip install --upgrade pip
+          pip install pylint pylint-json2html
+
+      - name: Run Pylint (fails if score < 10)
+        run: pylint student_grade_manager.py --fail-under=10
+
+      - name: Generate JSON report
+        if: always()
+        run: pylint student_grade_manager.py --output-format=json > pylint-report.json || true
+
+      - name: Convert JSON to HTML
+        if: always()
+        run: pylint-json2html -o pylint-report.html pylint-report.json
+
+      - name: Upload HTML report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pylint-report
+          path: pylint-report.html
